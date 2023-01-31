@@ -1,94 +1,102 @@
-#!/usr/bin/env node
-
-import readline from 'readline';
 import path from 'path';
-import inquirer from "inquirer";
 import fsp from 'fs/promises';
-import { createReadStream } from 'fs';
+import fs from 'fs';
+import http from 'http';
+import url from 'url';
+import { findRoute } from './routing.js'
 
+
+const host = 'localhost';
+const port = 3000;
 let currentDirectory = process.cwd();
-let numberLine = 1;
+let res;
+let req;
+let list;
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+const routes = {
+    "/": () => readDir(res),
+    "/:file": () => checkFile(res, req.url),
+}
 
-const readFile = (fileName, str) => {
+const readFile = (fileName) => {
     try {
-        const rl = readline.createInterface({
-            input: createReadStream(path.join(currentDirectory, fileName), 'utf-8'),
-        });
-
-        rl.on('line', (line) => {
-
-            if (str && line.includes(str)) {
-                console.log(`====found string \"${str}\" on line #${numberLine}:====== `);
-            }
-            console.log(line);
-            numberLine += 1;
-        });
+        const readStream = fs.createReadStream(fileName, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        readStream.pipe(res);
 
     } catch (err) {
         console.error(err);
-    } finally {
-        rl.close();
     }
 };
 
-const showList = async (indir) => {
-    const list = [];
-    for (const item of indir) {
-        list.push(item);
-    }
-    return list;
-};
-
-const chooseItem = (choices) => {
-    return inquirer
-        .prompt(
-            {
-                name: "fileName",
-                type: 'list', // input, number, confirm, list, rawlist, expand, checkbox, password
-                message: "Choose file or dir",
-                choices
-            })
-};
-
-const inputStr = () => {
-    return inquirer
-        .prompt(
-            {
-                name: "searchOption",
-                type: 'input',
-                message: "Enter the search string or press enter"
-            })
-};
-
-const readDir = (inPath) => {
-
+const readDir = (response) => {
     fsp
-        .readdir(path.join(currentDirectory, inPath), 'utf-8')
-        .then((indir) => showList(indir))
-        .then((choices) => chooseItem(choices))
-        .then(async (answer) => {
-
-            const src = await fsp.stat(path.join(currentDirectory, answer.fileName));
-
-            if (src.isFile()) {
-                inputStr().then((data) => {
-                    let str;
-                    data.searchOption ? str = data.searchOption : str = null;
-                    readFile(answer.fileName, str);
-                });
-
-            } else {
-                readDir(path.join(answer.fileName), 'utf-8');
-                currentDirectory += '\\' + answer.fileName;
+        .readdir(path.join(currentDirectory), 'utf-8')
+        .then((indir) => {
+            list = '';
+            for (const item of indir) {
+                list += `<li><a href="${item}">${item}</a></li>`;
             }
+            return list;
+        })
+        .then((list) => {
+            response.writeHead(200, { 'Content-Type': 'text/html' });
+            response.end(list);
         })
 }
 
-rl.question('Please enter the path to the file or press enter: ', (inPath) => {
-    readDir(inPath)
+const checkFile = async (response, fileName) => {
+    const src = await fsp.stat(path.join(currentDirectory, fileName));
+
+    if (src.isFile()) {
+        readFile(path.join(currentDirectory, fileName));
+    } else {
+        currentDirectory += '\\' + fileName;
+        readDir(response);
+    }
+}
+
+const server = http.createServer((request, response) => {
+    res = response;
+    req = request;
+    let result = '';
+
+    if (request.url === '/favicon.ico') {
+        response.writeHead(200, { 'Content-Type': 'image/x-icon' });
+        response.end();
+        return;
+    }
+
+    if (request.method === 'GET') {
+        const queryParams = url.parse(request.url, true);
+
+        const routeParams = findRoute(request.url.split('?')[0], routes);
+        const [routeCallback, params] = routeParams;
+
+        if (typeof routeCallback === 'function') {
+            result = routeCallback(params);
+        }
+        if (routeCallback === null) {
+            response.statusCode = 404;
+            result = { error: 'Not found' };
+        }
+        result = JSON.stringify(result);
+
+    } else if (request.method === 'POST') {
+        let data = '';
+        request.on('data', chunk => {
+            data += chunk;
+        });
+        request.on('end', () => {
+            const parsedData = JSON.parse(data);
+            console.log(parsedData);
+            response.writeHead(200, { 'Content-Type': 'json' });
+            response.end(data);
+        });
+    } else {
+        response.statusCode = 405;
+        response.end();
+    }
 });
+
+server.listen(port, host, () => console.log(`Server running at http://${host}:${port}`));
