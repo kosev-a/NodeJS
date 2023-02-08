@@ -1,0 +1,23 @@
+{
+  "name": "4",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "inquirer": "^9.1.4",
+    "socket.io": "^4.5.4",
+    "yargs": "^17.6.2"
+  },
+  "bin": {
+    "reader": "index.js"
+  }
+}

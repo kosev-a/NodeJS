@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Messanger</title>
+    <script
+      src="https://cdn.socket.io/4.5.4/socket.io.min.js"
+      integrity="sha384-/KNQL8Nu5gCHLqwqfQjA689Hhoqgi2S84SNUxC3roTe4EhJ9AfLkp8QiQcU8AMzI"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <h1>Messanger</h1>
+    <input type="text" id="input" autofocus />
+    <input type="submit" id="send" value="Send" />
+    <div id="app"></div>
+  </body>
+  <script type="text/javascript">
+    const socket = io("localhost:3000");
+    const addMsg = (msg, author = "") => {
+      const msgSpan = (document.createElement("span").textContent = msg);
+      const authorSpan = (document.createElement("span").textContent = author);
+      document.getElementById("app").append(authorSpan);
+      document.getElementById("app").append(msgSpan);
+      document.getElementById("app").append(document.createElement("br"));
+    };
+
+    let userCookie = {};
+
+    const parseCookies = () => {
+      rc = document.cookie;
+      if (rc) {
+        rc &&
+          rc.split(";").forEach(function (cookie) {
+            let parts = cookie.split("=");
+            userCookie[parts.shift().trim()] = decodeURI(parts.join("="));
+          });
+      }
+      return userCookie;
+    };
+
+    parseCookies();
+
+    socket.on("connect", () => {
+      console.log("Connection with localhost:3000 created");
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.log(reason);
+    });
+
+    socket.on("server-msg", ({ msg, author }) => {
+      author += ": ";
+      addMsg(msg, author);
+    });
+    socket.on("new-conn-event", ({ msg }) => {
+      addMsg(msg);
+    });
+    socket.on("disconn-event", ({ msg }) => {
+      addMsg(msg);
+    });
+
+    document.getElementById("send").onclick = function () {
+      
+      socket.emit("client-msg", {
+        msg: document.getElementById("input").value,
+        author: userCookie["userId"],
+      });
+      document.getElementById("input").value = "";
+    };
+  </script>
+</html>
