@@ -12,10 +12,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cookie-parser": "^1.4.6",
     "inquirer": "^9.1.4",
+    "socket.io": "^4.5.4",
     "yargs": "^17.6.2"
   },
   "bin": {
     "reader": "index.js"
-    }
+  }
 }
